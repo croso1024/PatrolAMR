@@ -3,37 +3,44 @@
 import * as mqtt from "mqtt";
 import { Server } from "socket.io";
 import { createServer } from "http"; 
+import Mqtt_Callback from "./src/AMR_interface.js"; 
+import { mqtt_qos , AMR_TO_OCC as A2O , OCC_TO_AMR as O2A } from "./src/MQTT_topics.js";
+
 const http_server = createServer() ; 
-const Mqtt_Callback = require("./MQTT_callback");
 const socket_server = new Server(http_server) ; 
 
 // ------------------  MQTT Server Settup ------------------
 let mqtt_client = mqtt.connect("mqtt://localhost:1883") ; 
-const AMR_OCC_topic = {
-    "test1" :{qos:0} , 
-    "test2" :{qos:0} , 
-    "test3" :{qos:0}, 
-    "test4" :{qos:0}, 
+
+let api_interface = {
+    "MQTT" : mqtt_client , 
+    "Socket": socket_server , 
+}
+
+let content = {
+    vehicle_status : {val:20}
 }
 
 mqtt_client.on("connect" , ()=>{
 
-    console.log("Connected broker success");
+    console.log("Connected broker success !") ; 
 
     mqtt_client.subscribe(
-        AMR_OCC_topic , (error,success) => {
-            if (error) {console.log(`subscribe error ${error}`)} 
-            else{ 
+
+        [...Object.keys(A2O) ,...Object.keys(O2A)] ,{qos:mqtt_qos}, (error , success) => {
+            if (error) {console.log(`Subscribe error ${error}`)} 
+            else {
                 success.forEach(
-                    (info , index) => console.log(`Subscribe the topic(${index}) ${info.topic} with qos : ${info.qos}`)
+                    (info , index) => {console.log(`Subscriber the topic ${index} ${info.topic} with qos ${info.qos}`)}
                 )
-             }
+            }
         }
-    ) ; 
+    );
 
-    mqtt_client.on("message", Mqtt_Callback) ; 
+    mqtt_client.on("message", (topic , message)=>{
+        Mqtt_Callback(topic , message ,api_interface ,content)
+    });
 });
-
 
 
 // ------------------  Socket.IO server setting ------------------
@@ -50,6 +57,7 @@ socket_server.on("connect" , (socket)=>{
 })
 
 
+
 http_server.listen(3000 , ()=>{
     console.log(`Socket server on , listen :${3000}`); 
 })
@@ -57,28 +65,3 @@ http_server.listen(3000 , ()=>{
 
 
 
-
-
-
-
-
-function Mqtt_Callback ( topic , msg , packet) {
-    if (topic === "test1") {
-       handle_test1(msg.toString())
-    }
-    else if (topic === "test2") {
-        handle_test2(msg)
-    }
-    else if (topic === "test3") {
-        
-    }
-}
-
-function handle_test1( msg )
-{
-    console.log("Test1",msg)
-}
-function handle_test2( msg )
-{
-    console.log("Test2",msg)
-}
